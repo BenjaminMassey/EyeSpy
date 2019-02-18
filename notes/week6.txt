@@ -1,0 +1,7 @@
+Benjamin Massey / Michael Welch
+Week 6 Notes
+
+This week we started by looking into the documentation of the C++ tools we will be using.
+This included going over the guide for openCV eye tracking, and then looking more in depth into general openCV usage.
+We have also started to poke around with our graphics library, SFML, which has been limited to the basics of setup so far.
+Best news is that we are still fairly confident in our idea, and everything is working smoothly :)
