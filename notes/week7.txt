@@ -1,0 +1,5 @@
+Benjamin Massey / Michael Welch
+Week 7 Notes
+
+This week we created some small GUIs using SFML to practice creating projects and applications in C++.
+We also tested out our webcams to see which ones had the best quality so we could determine which one will be suitable for eye tracking.  Luckily, it seems that we have a webcam that has good quality, and our project should start moving along steadily.
