@@ -37,7 +37,7 @@ int main() {
 
     // Font
     sf::Font font;
-    if (!font.loadFromFile("arial.ttf"))
+    if (!font.loadFromFile("./fonts/arial.ttf"))
     {
         printf("OOF\n");
     }
