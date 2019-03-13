@@ -3,7 +3,10 @@
 #include <functional>
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "SFML works!", sf::Style::Default);
+	sf::ContextSettings settings;
+	settings.antialiasingLevel = 8;
+
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "SFML works!", sf::Style::Default, settings);
     sf::Vector2u windowSize = window.getSize();
 
     sf::CircleShape viewport(50.0f);
