@@ -3,7 +3,7 @@ EyeTracking: EyeTracking.cpp
 
 EyeSpy: EyeSpy.o
 	g++ -c EyeSpy.cpp
-	g++ EyeSpy.o -o EyeSpy.exe -I /usr/local/include -L /usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_objdetect -lopencv_highgui -lopencv_videoio -lsfml-graphics -lsfml-window -lsfml-system
+	g++ EyeSpy.o -o EyeSpy.exe -I /usr/local/include -L /usr/local/lib -lopencv_core -lopencv_imgproc -lopencv_objdetect -lopencv_highgui -lopencv_videoio -lsfml-graphics -lsfml-window -lsfml-system -lpthread -pthread
 
 clean:
 	rm -f EyeTracking.exe EyeSpy.o EyeSpy.exe
