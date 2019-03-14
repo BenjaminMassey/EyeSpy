@@ -152,12 +152,24 @@ cv::Mat frame;
 cv::CascadeClassifier faceCascade;
 cv::CascadeClassifier eyeCascade;
 
+sf::CircleShape viewport(50.0f);
+
+int eyeMin[2];
+int eyeMax[2];
+
 void cameraLoop() {
     cv::VideoCapture cap(0);
     while (1) {
         cap >> frame; // outputs the webcam image to a Mat
         detectEyes(frame, faceCascade, eyeCascade);
         cv::imshow("Webcam", frame); // displays the Mat
+        int x[2] = { mousePoint.x, mousePoint.y };
+        if (x[0] < eyeMin[0]) { x[0]= eyeMin[0]; }
+        if (x[0] > eyeMax[0]) { x[0] = eyeMax[0]; }
+        if (x[1] < eyeMin[1]) { x[1] = eyeMin[1]; }
+        if (x[1] > eyeMax[1]) { x[1] = eyeMax[1]; }
+        std::cout << "Pos: (" << x[0] << ", " << x[1] << ")\n";
+        viewport.setPosition(x[0], x[1]);
         if (cv::waitKey(30) >= 0) break;
     }
     cv::destroyAllWindows();
@@ -199,8 +211,15 @@ int main() {
     sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "SFML works!", sf::Style::Default);
     sf::Vector2u windowSize = window.getSize();
 
+    eyeMin[0] = 50;
+    eyeMin[1] = 50;
+
+    eyeMax[0] = windowSize.x - 50;
+    eyeMax[1] = windowSize.y - 50;
+
+
     // Setup viewport
-    sf::CircleShape viewport(50.0f);
+    //sf::CircleShape viewport(50.0f);
     viewport.setOrigin(50.0f, 50.0f);
     viewport.setPosition(windowSize.x / 2, windowSize.y / 2);
     viewport.setFillColor(sf::Color(0, 0, 0, 0));
@@ -253,6 +272,8 @@ int main() {
     calibrateMessage.setOrigin(cmBoundingBox.left + cmBoundingBox.width / 2, cmBoundingBox.top + cmBoundingBox.height / 2);
     calibrateMessage.setPosition(windowSize.x / 2, windowSize.y / 4);
 
+    mousePoint = cv::Point(800, 800);
+
     std::thread camth(cameraLoop);
 
     while (window.isOpen()) {
@@ -272,9 +293,9 @@ int main() {
             if (state == -1) {
                 //cap >> frame;
                 //detectEyes(frame, faceCascade, eyeCascade);
-                int* eyes = getEyes();
+                //int* eyes = getEyes();
                 //viewport.setPosition(eyes[0], eyes[1]);
-                //viewport.setPosition(frame.cols, frame.rows);
+                
                 //cv::imshow("Webcam", frame);
             }
 
