@@ -154,8 +154,14 @@ cv::CascadeClassifier eyeCascade;
 
 sf::CircleShape viewport(50.0f);
 
+int state;
+
+int eyePos[2];
+
 int eyeMin[2];
 int eyeMax[2];
+
+int calibs[9][2][2];
 
 void cameraLoop() {
     cv::VideoCapture cap(0);
@@ -163,16 +169,30 @@ void cameraLoop() {
         cap >> frame; // outputs the webcam image to a Mat
         detectEyes(frame, faceCascade, eyeCascade);
         cv::imshow("Webcam", frame); // displays the Mat
-        int x[2] = { mousePoint.x, mousePoint.y };
-        if (x[0] < eyeMin[0]) { x[0]= eyeMin[0]; }
-        if (x[0] > eyeMax[0]) { x[0] = eyeMax[0]; }
-        if (x[1] < eyeMin[1]) { x[1] = eyeMin[1]; }
-        if (x[1] > eyeMax[1]) { x[1] = eyeMax[1]; }
-        std::cout << "Pos: (" << x[0] << ", " << x[1] << ")\n";
-        viewport.setPosition(x[0], x[1]);
+        eyePos[0] = mousePoint.x;
+        eyePos[1] = mousePoint.y;
+        if (state == -1) {
+            if (eyePos[0] < eyeMin[0]) { eyePos[0]= eyeMin[0]; }
+            if (eyePos[0] > eyeMax[0]) { eyePos[0] = eyeMax[0]; }
+            if (eyePos[1] < eyeMin[1]) { eyePos[1] = eyeMin[1]; }
+            if (eyePos[1] > eyeMax[1]) { eyePos[1] = eyeMax[1]; }
+        }
+        std::cout << "Pos: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
+        viewport.setPosition(eyePos[0], eyePos[1]);
         if (cv::waitKey(30) >= 0) break;
     }
     cv::destroyAllWindows();
+}
+
+void niceCalibsPrint() {
+    std::cout << "\n\nCalibration Matrix: ";
+    for (int i = 0; i < 9; i++) {
+        std::cout << "(" << calibs[i][0][0] << ", " << calibs[i][0][1] << ")";
+        std::cout << " -> ";
+        std::cout << "(" << calibs[i][1][0] << ", " << calibs[i][1][1] << ")";
+        std::cout << "\n";
+    }
+    std::cout << "\n\n";
 }
 
 int main() {
@@ -252,7 +272,8 @@ int main() {
     score.setOutlineThickness(1);
 
     // Setup calibration box
-    int state = 0;
+    //int state = 0;
+    state = 0;
     sf::RectangleShape calibration(sf::Vector2f(50.0f, 50.0f));
     calibration.setOrigin(25.0f, 25.0f);
     calibration.setPosition(25.0f + 1.0f, 25.0f + 1.0f);
@@ -306,38 +327,75 @@ int main() {
             		switch(state) {
             			case 0:
             				calibration.setPosition(windowSize.x / 2, 25.0f + 1.0f);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = 26;
+                            calibs[state][1][1] = 26;
             				state = 1;
             				break;
             			case 1:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, 25.0f + 1.0f);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x / 2);
+                            calibs[state][1][1] = 26;
             				state = 2;
             				break;
             			case 2:
             				calibration.setPosition(25.0f + 1.0f, windowSize.y / 2);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
+                            calibs[state][1][1] = 26;
             				state = 3;
             				break;
             			case 3:
             				calibration.setPosition(windowSize.x / 2, windowSize.y / 2);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = 26;
+                            calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 4;
             				break;
             			case 4:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, windowSize.y / 2);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x / 2);
+                            calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 5;
             				break;
             			case 5:
             				calibration.setPosition(25.0f + 1.0f, windowSize.y - 25.0f - 1.0f);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
+                            calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 6;
             				break;
             			case 6:
             				calibration.setPosition(windowSize.x / 2, windowSize.y - 25.0f - 1.0f);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = 26;
+                            calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
             				state = 7;
             				break;
             			case 7:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, windowSize.y - 25.0f - 1.0f);
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x / 2);
+                            calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
             				state = 8;
             				break;
             			default:
-            				state = -1;
+                            calibs[state][0][0] = eyePos[0];
+                            calibs[state][0][1] = eyePos[1];
+                            calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
+                            calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
+                            state = -1;
+                            niceCalibsPrint();
             				break;
             		}
             	}
