@@ -94,9 +94,18 @@ void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeC
   eyeCascade.detectMultiScale(face, eyes, 1.1, 2, 0 | 2, cv::Size(30, 30)); // same thing as above    
   rectangle(frame, faces[0].tl(), faces[0].br(), cv::Scalar(255, 0, 0), 2);
   if (eyes.size() != 2) return; // both eyes were not detected
+  int x1, x2, y1, y2, r;
+  int index = 0;
   for (cv::Rect &eye : eyes)
   {
+    if (index == 0) { 
+        x1 = (faces[0].tl() + eye.tl()).x;
+        x2 = (faces[0].tl() + eye.br()).x;
+        y1 = (faces[0].tl() + eye.tl()).y;
+        y2 = (faces[0].tl() + eye.br()).y;
+    }
       rectangle(frame, faces[0].tl() + eye.tl(), faces[0].tl() + eye.br(), cv::Scalar(0, 255, 0), 2);
+      index++;
   }
   cv::Rect eyeRect = getLeftmostEye(eyes);
   cv::Mat eye = face(eyeRect); // crop the leftmost eye
@@ -109,6 +118,7 @@ void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeC
       cv::Point center(eyeball[0], eyeball[1]);
       centers.push_back(center);
       center = stabilize(centers, 5);
+      /*
       if (centers.size() > 1)
       {
           cv::Point diff;
@@ -116,8 +126,22 @@ void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeC
           diff.y = (center.y - lastPoint.y) * -30;
           mousePoint += diff;
       }
+      */
       lastPoint = center;
       int radius = (int)eyeball[2];
+      cv::Point c = faces[0].tl() + eyeRect.tl() + center;
+      float cx = c.x;
+      float cy = c.y;
+      float x3 = c.x - radius;
+      if (x3 < 0) { x3 = -x3; }
+      float y3 = c.y - radius;
+      if (y3 < 0) { y3 = -y3; }
+      float a1 = ((x2 - x1) - (x2 - x3));
+      float b1 = ((y2 - y1) - (y2 - y3));
+      mousePoint.x = (a1 / (x2 - x1)) * 100.0f;
+      //if (mousePoint.x < 0) { mousePoint.x = -mousePoint.x; }
+      mousePoint.y = (b1 / (y2 - y1)) * 100.0f;
+      //if (mousePoint.y < 0) { mousePoint.y = -mousePoint.y; }
       cv::circle(frame, faces[0].tl() + eyeRect.tl() + center, radius, cv::Scalar(0, 0, 255), 2);
       cv::circle(eye, center, radius, cv::Scalar(255, 255, 255), 2);
   }
@@ -174,6 +198,7 @@ void createXEquation() {
     }
     //std::sort(points[0], points[9], compareFirstEntry);
     // https://stackoverflow.com/a/20932034
+    /*
     std::qsort(points, 10, sizeof(*points),
         [](const void *arg1, const void *arg2)->int
         {
@@ -184,8 +209,8 @@ void createXEquation() {
                 :  (lhs[1] < rhs[1] ? -1
                 :  ((rhs[1] < lhs[1] ? 1 : 0))));
         });
+    */
 
-    std::cout << "Ordered?\n";
     for(int i = 0; i < 9; i++){
         std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
     }
@@ -195,14 +220,14 @@ void createXEquation() {
     for (int i = 0; i < 9; i++) {
         sum += points[i][0];
     }
-    int avgX = std::round(sum / 9);
+    float avgX = std::round(sum / 9);
     sum = 0;
     for (int i = 0; i < 9; i++) {
         sum += points[i][1];
     }
-    int avgY = std::round(sum / 9);
-    int sumTop = 0;
-    int sumBottom = 0;
+    float avgY = std::round(sum / 9);
+    float sumTop = 0;
+    float sumBottom = 0;
     for (int i = 0; i < 9; i++) {
         sumTop += (points[i][0] - avgX) * (points[i][1] - avgY);
         sumBottom += (points[i][0] - avgX) * (points[i][0] - avgX);
@@ -220,6 +245,7 @@ void createYEquation() {
     }
     //std::sort(points[0], points[9], compareFirstEntry);
     // https://stackoverflow.com/a/20932034
+    /*
     std::qsort(points, 10, sizeof(*points),
         [](const void *arg1, const void *arg2)->int
         {
@@ -230,7 +256,7 @@ void createYEquation() {
                 :  (lhs[1] < rhs[1] ? -1
                 :  ((rhs[1] < lhs[1] ? 1 : 0))));
         });
-
+    */
     std::cout << "Ordered?\n";
     for(int i = 0; i < 9; i++){
         std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
@@ -241,14 +267,14 @@ void createYEquation() {
     for (int i = 0; i < 9; i++) {
         sum += points[i][0];
     }
-    int avgX = std::round(sum / 9);
+    float avgX = std::round(sum / 9);
     sum = 0;
     for (int i = 0; i < 9; i++) {
         sum += points[i][1];
     }
-    int avgY = std::round(sum / 9);
-    int sumTop = 0;
-    int sumBottom = 0;
+    float avgY = std::round(sum / 9);
+    float sumTop = 0;
+    float sumBottom = 0;
     for (int i = 0; i < 9; i++) {
         sumTop += (points[i][0] - avgX) * (points[i][1] - avgY);
         sumBottom += (points[i][0] - avgX) * (points[i][0] - avgX);
@@ -260,8 +286,16 @@ void createYEquation() {
 
 int* calibrationConvert(int original[]) {
     static int converted[2];
-    converted[0] = std::round((shiftX[0] * original[0]) + shiftX[1]);
-    converted[1] = std::round((shiftY[0] * original[1]) + shiftY[1]);
+    if (shiftX[0] != 0.0f) {
+        converted[0] = std::round((shiftX[0] * original[0]) + shiftX[1]);
+    } else {
+        converted[0] = original[0];
+    }
+    if (shiftY[0] != 0.0f) {
+        converted[1] = std::round((shiftY[0] * original[1]) + shiftY[1]);
+    } else {
+        converted[1] = original[1];
+    }
     //converted[0] = 0;
     //converted[1] = 0;
     return converted;
