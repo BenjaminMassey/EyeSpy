@@ -22,7 +22,9 @@ int main() {
 
     // Setup background image
     sf::Texture backgroundTexture;
-    backgroundTexture.loadFromFile("./images/waldoBackground.png");
+    if (!backgroundTexture.loadFromFile("./images/waldoBackground.png")) {
+        printf("Couldn't load file - \"./images/waldoBackground.png\"\n");
+    }
     sf::Sprite background;
     background.setScale(0.25f, 0.25f);
     background.setTexture(backgroundTexture);
@@ -44,14 +46,15 @@ int main() {
 
     // Add Texture
     sf::Texture targetTexture;
-    targetTexture.loadFromFile("./images/waldo.png");
+    if (!targetTexture.loadFromFile("./images/waldo.png")) {
+        printf("Couldn't load file - \"./images/waldo.png\"\n");
+    }
     target.setTexture(&targetTexture);
 
     // Font
     sf::Font font;
-    if (!font.loadFromFile("./fonts/arial.ttf"))
-    {
-      printf("OOF\n");
+    if (!font.loadFromFile("./fonts/arial.ttf")) {
+      printf("Couldn't load file - \"./fonts/arial.ttf\"\n");
     }
 
     // Score
