@@ -265,17 +265,17 @@ void cameraLoop() {
         cv::imshow("Webcam", frame); // displays the Mat
         eyePos[0] = mousePoint.x;
         eyePos[1] = mousePoint.y;
-        std::cout << "Original Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
+        //DEBUG std::cout << "Original Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
         if (state == -1) {
             int* conversion = calibrationConvert(eyePos);
             eyePos[0] = conversion[0];
             eyePos[1] = conversion[1];
-            std::cout << "Converted Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
+            //DEBUG std::cout << "Converted Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
             if (eyePos[0] < eyeMin[0]) { eyePos[0]= eyeMin[0]; }
             if (eyePos[0] > eyeMax[0]) { eyePos[0] = eyeMax[0]; }
             if (eyePos[1] < eyeMin[1]) { eyePos[1] = eyeMin[1]; }
             if (eyePos[1] > eyeMax[1]) { eyePos[1] = eyeMax[1]; }
-            std::cout << "Capped Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
+            //DEBUG std::cout << "Capped Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
         }
         viewport.setPosition(eyePos[0], eyePos[1]);
         if (cv::waitKey(30) >= 0) break;
@@ -393,7 +393,7 @@ int main() {
             if (event.type == sf::Event::KeyPressed) {
                 //DEBUG std::cout << "Trying...";
             	if (event.key.code == sf::Keyboard::Space) {
-                    std::cout << "Space!\n";
+                    //DEBUG std::cout << "Space!\n";
             		switch(state) {
             			case 0:
             				calibration.setPosition(windowSize.x / 2, 25.0f + 1.0f);
