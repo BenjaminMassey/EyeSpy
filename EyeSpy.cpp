@@ -163,6 +163,110 @@ int eyeMax[2];
 
 int calibs[9][2][2];
 
+float shiftX[2];
+float shiftY[2];
+
+void createXEquation() {
+    int points[9][2];
+    for (int i = 0; i < 9; i++) {
+        points[i][0] = calibs[i][0][0];
+        points[i][1] = calibs[i][1][0];
+    }
+    //std::sort(points[0], points[9], compareFirstEntry);
+    // https://stackoverflow.com/a/20932034
+    std::qsort(points, 10, sizeof(*points),
+        [](const void *arg1, const void *arg2)->int
+        {
+            int const *lhs = static_cast<int const*>(arg1);
+            int const *rhs = static_cast<int const*>(arg2);
+            return (lhs[0] < rhs[0]) ? -1
+                :  ((rhs[0] < lhs[0]) ? 1
+                :  (lhs[1] < rhs[1] ? -1
+                :  ((rhs[1] < lhs[1] ? 1 : 0))));
+        });
+
+    std::cout << "Ordered?\n";
+    for(int i = 0; i < 9; i++){
+        std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
+    }
+
+    //https://www.varsitytutors.com/hotmath/hotmath_help/topics/line-of-best-fit
+    int sum = 0;
+    for (int i = 0; i < 9; i++) {
+        sum += points[i][0];
+    }
+    int avgX = std::round(sum / 9);
+    sum = 0;
+    for (int i = 0; i < 9; i++) {
+        sum += points[i][1];
+    }
+    int avgY = std::round(sum / 9);
+    int sumTop = 0;
+    int sumBottom = 0;
+    for (int i = 0; i < 9; i++) {
+        sumTop += (points[i][0] - avgX) * (points[i][1] - avgY);
+        sumBottom += (points[i][0] - avgX) * (points[i][0] - avgX);
+    }
+    shiftX[0] = sumTop / sumBottom;
+    shiftX[1] = avgY - (shiftX[0] * avgX);
+    std::cout << "y = " << shiftX[0] << "x + " << shiftX[1] << "\n\n";
+}
+
+void createYEquation() {
+    int points[9][2];
+    for (int i = 0; i < 9; i++) {
+        points[i][0] = calibs[i][0][1];
+        points[i][1] = calibs[i][1][1];
+    }
+    //std::sort(points[0], points[9], compareFirstEntry);
+    // https://stackoverflow.com/a/20932034
+    std::qsort(points, 10, sizeof(*points),
+        [](const void *arg1, const void *arg2)->int
+        {
+            int const *lhs = static_cast<int const*>(arg1);
+            int const *rhs = static_cast<int const*>(arg2);
+            return (lhs[0] < rhs[0]) ? -1
+                :  ((rhs[0] < lhs[0]) ? 1
+                :  (lhs[1] < rhs[1] ? -1
+                :  ((rhs[1] < lhs[1] ? 1 : 0))));
+        });
+
+    std::cout << "Ordered?\n";
+    for(int i = 0; i < 9; i++){
+        std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
+    }
+
+    //https://www.varsitytutors.com/hotmath/hotmath_help/topics/line-of-best-fit
+    int sum = 0;
+    for (int i = 0; i < 9; i++) {
+        sum += points[i][0];
+    }
+    int avgX = std::round(sum / 9);
+    sum = 0;
+    for (int i = 0; i < 9; i++) {
+        sum += points[i][1];
+    }
+    int avgY = std::round(sum / 9);
+    int sumTop = 0;
+    int sumBottom = 0;
+    for (int i = 0; i < 9; i++) {
+        sumTop += (points[i][0] - avgX) * (points[i][1] - avgY);
+        sumBottom += (points[i][0] - avgX) * (points[i][0] - avgX);
+    }
+    shiftY[0] = sumTop / sumBottom;
+    shiftY[1] = avgY - (shiftX[0] * avgX);
+    std::cout << "y = " << shiftY[0] << "x + " << shiftY[1] << "\n\n";
+}
+
+int* calibrationConvert(int original[]) {
+    static int converted[2];
+    converted[0] = std::round((shiftX[0] * original[0]) + shiftX[1]);
+    converted[1] = std::round((shiftY[0] * original[1]) + shiftY[1]);
+    //converted[0] = 0;
+    //converted[1] = 0;
+    return converted;
+}
+
 void cameraLoop() {
     cv::VideoCapture cap(0);
     while (1) {
@@ -171,13 +275,18 @@ void cameraLoop() {
         cv::imshow("Webcam", frame); // displays the Mat
         eyePos[0] = mousePoint.x;
         eyePos[1] = mousePoint.y;
+        std::cout << "Original Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
         if (state == -1) {
+            int* conversion = calibrationConvert(eyePos);
+            eyePos[0] = conversion[0];
+            eyePos[1] = conversion[1];
+            std::cout << "Converted Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
             if (eyePos[0] < eyeMin[0]) { eyePos[0]= eyeMin[0]; }
             if (eyePos[0] > eyeMax[0]) { eyePos[0] = eyeMax[0]; }
             if (eyePos[1] < eyeMin[1]) { eyePos[1] = eyeMin[1]; }
             if (eyePos[1] > eyeMax[1]) { eyePos[1] = eyeMax[1]; }
+            std::cout << "Capped Position: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
         }
-        std::cout << "Pos: (" << eyePos[0] << ", " << eyePos[1] << ")\n";
         viewport.setPosition(eyePos[0], eyePos[1]);
         if (cv::waitKey(30) >= 0) break;
     }
@@ -185,7 +294,7 @@ void cameraLoop() {
 }
 
 void niceCalibsPrint() {
-    std::cout << "\n\nCalibration Matrix: ";
+    std::cout << "\n\nCalibration Matrix:\n";
     for (int i = 0; i < 9; i++) {
         std::cout << "(" << calibs[i][0][0] << ", " << calibs[i][0][1] << ")";
         std::cout << " -> ";
@@ -204,6 +313,11 @@ int main() {
         if (cv::waitKey(30) >= 0) break;
     }
     */
+
+    shiftX[0] = 0.0f;
+    shiftX[1] = 0.0f;
+    shiftY[0] = 0.0f;
+    shiftY[1] = 0.0f;
 
     if (!faceCascade.load("./xmls/haarcascade_frontalface_alt.xml"))
     {
@@ -396,6 +510,8 @@ int main() {
                             calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
                             state = -1;
                             niceCalibsPrint();
+                            createXEquation();
+                            createYEquation();
             				break;
             		}
             	}
