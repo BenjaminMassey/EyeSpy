@@ -1,3 +1,10 @@
+// EyeSpy - https://www.github.com/BenjaminMassey/EyeSpy
+// Copyright 2019 Ben Massey and Michael Welch
+
+// A large portion of the eye tracking work was taken directly from this tutorial:
+// https://picoledelimao.github.io/blog/2017/01/28/eyeball-tracking-for-mouse-control-in-opencv/
+// Huge shoutouts to him, really appreciate the easy intro to eye tracking in openCV.
+
 #include <SFML/Graphics.hpp>
 #include <cmath>
 
@@ -9,12 +16,32 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/objdetect/objdetect.hpp>
 
+// Globals
+
 std::vector<cv::Point> centers;
 cv::Point lastPoint;
-cv::Point mousePoint;
+cv::Point mousePoint; // Current estimated look point (original)
 
-cv::Vec3f getEyeball(cv::Mat &eye, std::vector<cv::Vec3f> &circles)
-{
+cv::Mat frame; // Holds the face
+
+cv::CascadeClassifier faceCascade;
+cv::CascadeClassifier eyeCascade;
+
+sf::CircleShape viewport(50.0f);
+
+int state;
+
+int eyePos[2]; // Where to put the eye
+
+int eyeMin[2]; // Minimum screen pos to look
+int eyeMax[2]; // Maximum screen pos to look
+
+int calibs[9][2][2]; // Matrix gathered from calibration
+
+float shiftX[2]; // Equation to correct eye guess x coord [slope, y-intercept]
+float shiftY[2]; // Equation to correct eye guess y coord [slope, y-intercept]
+
+cv::Vec3f getEyeball(cv::Mat &eye, std::vector<cv::Vec3f> &circles) {
   std::vector<int> sums(circles.size(), 0);
   for (int y = 0; y < eye.rows; y++)
   {
@@ -47,8 +74,7 @@ cv::Vec3f getEyeball(cv::Mat &eye, std::vector<cv::Vec3f> &circles)
   return circles[smallestSumIndex];
 }
 
-cv::Rect getLeftmostEye(std::vector<cv::Rect> &eyes)
-{
+cv::Rect getLeftmostEye(std::vector<cv::Rect> &eyes) {
   int leftmost = 99999999;
   int leftmostIndex = -1;
   for (int i = 0; i < eyes.size(); i++)
@@ -62,8 +88,7 @@ cv::Rect getLeftmostEye(std::vector<cv::Rect> &eyes)
   return eyes[leftmostIndex];
 }
 
-cv::Point stabilize(std::vector<cv::Point> &points, int windowSize)
-{
+cv::Point stabilize(std::vector<cv::Point> &points, int windowSize) {
   float sumX = 0;
   float sumY = 0;
   int count = 0;
@@ -81,8 +106,7 @@ cv::Point stabilize(std::vector<cv::Point> &points, int windowSize)
   return cv::Point(sumX, sumY);
 }
 
-void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeClassifier &eyeCascade)
-{
+void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeClassifier &eyeCascade) {
   cv::Mat grayscale;
   cv::cvtColor(frame, grayscale, cv::COLOR_RGB2GRAY); // convert image to grayscale
   cv::equalizeHist(grayscale, grayscale); // enhance image contrast 
@@ -118,15 +142,6 @@ void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeC
       cv::Point center(eyeball[0], eyeball[1]);
       centers.push_back(center);
       center = stabilize(centers, 5);
-      /*
-      if (centers.size() > 1)
-      {
-          cv::Point diff;
-          diff.x = (center.x - lastPoint.x) * 20;
-          diff.y = (center.y - lastPoint.y) * -30;
-          mousePoint += diff;
-      }
-      */
       lastPoint = center;
       int radius = (int)eyeball[2];
       cv::Point c = faces[0].tl() + eyeRect.tl() + center;
@@ -139,22 +154,9 @@ void detectEyes(cv::Mat &frame, cv::CascadeClassifier &faceCascade, cv::CascadeC
       float a1 = ((x2 - x1) - (x2 - x3));
       float b1 = ((y2 - y1) - (y2 - y3));
       mousePoint.x = (a1 / (x2 - x1)) * 100.0f;
-      //if (mousePoint.x < 0) { mousePoint.x = -mousePoint.x; }
       mousePoint.y = (b1 / (y2 - y1)) * 100.0f;
-      //if (mousePoint.y < 0) { mousePoint.y = -mousePoint.y; }
       cv::circle(frame, faces[0].tl() + eyeRect.tl() + center, radius, cv::Scalar(0, 0, 255), 2);
-      cv::circle(eye, center, radius, cv::Scalar(255, 255, 255), 2);
   }
-  //cv::imshow("Eye", eye);
-}
-
-int* getEyes() {
-
-    static int x[2];
-    x[0] = 0;
-    x[1] = 0;
-
-    return x;
 }
 
 bool inRadius(float radius, sf::Vector2i mousePos, sf::Vector2f targetPos, sf::Vector2f targetSize) {
@@ -171,49 +173,17 @@ bool inRadius(float radius, sf::Vector2i mousePos, sf::Vector2f targetPos, sf::V
 	return true;
 }
 
-cv::Mat frame;
-
-cv::CascadeClassifier faceCascade;
-cv::CascadeClassifier eyeCascade;
-
-sf::CircleShape viewport(50.0f);
-
-int state;
-
-int eyePos[2];
-
-int eyeMin[2];
-int eyeMax[2];
-
-int calibs[9][2][2];
-
-float shiftX[2];
-float shiftY[2];
-
 void createXEquation() {
     int points[9][2];
     for (int i = 0; i < 9; i++) {
         points[i][0] = calibs[i][0][0];
         points[i][1] = calibs[i][1][0];
     }
-    //std::sort(points[0], points[9], compareFirstEntry);
-    // https://stackoverflow.com/a/20932034
-    /*
-    std::qsort(points, 10, sizeof(*points),
-        [](const void *arg1, const void *arg2)->int
-        {
-            int const *lhs = static_cast<int const*>(arg1);
-            int const *rhs = static_cast<int const*>(arg2);
-            return (lhs[0] < rhs[0]) ? -1
-                :  ((rhs[0] < lhs[0]) ? 1
-                :  (lhs[1] < rhs[1] ? -1
-                :  ((rhs[1] < lhs[1] ? 1 : 0))));
-        });
-    */
-
+    /* DEBUG
     for(int i = 0; i < 9; i++){
         std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
     }
+    */
 
     //https://www.varsitytutors.com/hotmath/hotmath_help/topics/line-of-best-fit
     int sum = 0;
@@ -243,24 +213,12 @@ void createYEquation() {
         points[i][0] = calibs[i][0][1];
         points[i][1] = calibs[i][1][1];
     }
-    //std::sort(points[0], points[9], compareFirstEntry);
-    // https://stackoverflow.com/a/20932034
-    /*
-    std::qsort(points, 10, sizeof(*points),
-        [](const void *arg1, const void *arg2)->int
-        {
-            int const *lhs = static_cast<int const*>(arg1);
-            int const *rhs = static_cast<int const*>(arg2);
-            return (lhs[0] < rhs[0]) ? -1
-                :  ((rhs[0] < lhs[0]) ? 1
-                :  (lhs[1] < rhs[1] ? -1
-                :  ((rhs[1] < lhs[1] ? 1 : 0))));
-        });
-    */
-    std::cout << "Ordered?\n";
+
+    /* DEBUG
     for(int i = 0; i < 9; i++){
         std::cout << "(" << points[i][0] << ", " << points[i][1] << ")\n";
     }
+    */
 
     //https://www.varsitytutors.com/hotmath/hotmath_help/topics/line-of-best-fit
     int sum = 0;
@@ -296,8 +254,6 @@ int* calibrationConvert(int original[]) {
     } else {
         converted[1] = original[1];
     }
-    //converted[0] = 0;
-    //converted[1] = 0;
     return converted;
 }
 
@@ -339,15 +295,8 @@ void niceCalibsPrint() {
 }
 
 int main() {
-    /*
-    cv::VideoCapture cap(0);
-    while (1) {
-        cap >> frame; // outputs the webcam image to a Mat
-        cv::imshow("Webcam", frame); // displays the Mat
-        if (cv::waitKey(30) >= 0) break;
-    }
-    */
 
+    // Default equation values
     shiftX[0] = 0.0f;
     shiftX[1] = 0.0f;
     shiftY[0] = 0.0f;
@@ -363,20 +312,8 @@ int main() {
       std::cerr << "Could not load eye detector." << std::endl;
       return -1;
     }
-    /*
-    if (!cap.isOpened())
-    {
-      std::cerr << "Webcam not detected." << std::endl;
-      return -1;
-    }
-
-    while (1) {
-        cap >> frame; // outputs the webcam image to a Mat
-        cv::imshow("Webcam", frame); // displays the Mat
-        if (cv::waitKey(30) >= 0) break; // takes 30 frames per second. if the user presses any button, it stops from showing the webcam
-    }
-    */
-    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "SFML works!", sf::Style::Default);
+    
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "EyeSpy (Eye-Tracking)", sf::Style::Default);
     sf::Vector2u windowSize = window.getSize();
 
     eyeMin[0] = 50;
@@ -387,7 +324,6 @@ int main() {
 
 
     // Setup viewport
-    //sf::CircleShape viewport(50.0f);
     viewport.setOrigin(50.0f, 50.0f);
     viewport.setPosition(windowSize.x / 2, windowSize.y / 2);
     viewport.setFillColor(sf::Color(0, 0, 0, 0));
@@ -420,7 +356,6 @@ int main() {
     score.setOutlineThickness(1);
 
     // Setup calibration box
-    //int state = 0;
     state = 0;
     sf::RectangleShape calibration(sf::Vector2f(50.0f, 50.0f));
     calibration.setOrigin(25.0f, 25.0f);
@@ -445,6 +380,8 @@ int main() {
 
     std::thread camth(cameraLoop);
 
+    float sum;
+
     while (window.isOpen()) {
         
         sf::Event event;
@@ -453,93 +390,150 @@ int main() {
                 window.close();
             }
 
-            /*
-            if (event.type == sf::Event::MouseMoved) {
-                viewport.setPosition(event.mouseMove.x, event.mouseMove.y);
-            }
-            */
-
-            if (state == -1) {
-                //cap >> frame;
-                //detectEyes(frame, faceCascade, eyeCascade);
-                //int* eyes = getEyes();
-                //viewport.setPosition(eyes[0], eyes[1]);
-                
-                //cv::imshow("Webcam", frame);
-            }
-
             if (event.type == sf::Event::KeyPressed) {
-                //std::cout << "Trying...";
+                //DEBUG std::cout << "Trying...";
             	if (event.key.code == sf::Keyboard::Space) {
                     std::cout << "Space!\n";
             		switch(state) {
             			case 0:
             				calibration.setPosition(windowSize.x / 2, 25.0f + 1.0f);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = 26;
                             calibs[state][1][1] = 26;
             				state = 1;
             				break;
             			case 1:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, 25.0f + 1.0f);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x / 2);
                             calibs[state][1][1] = 26;
             				state = 2;
             				break;
             			case 2:
             				calibration.setPosition(25.0f + 1.0f, windowSize.y / 2);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
                             calibs[state][1][1] = 26;
             				state = 3;
             				break;
             			case 3:
             				calibration.setPosition(windowSize.x / 2, windowSize.y / 2);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = 26;
                             calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 4;
             				break;
             			case 4:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, windowSize.y / 2);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x / 2);
                             calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 5;
             				break;
             			case 5:
             				calibration.setPosition(25.0f + 1.0f, windowSize.y - 25.0f - 1.0f);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
                             calibs[state][1][1] = std::round(windowSize.y / 2);
             				state = 6;
             				break;
             			case 6:
             				calibration.setPosition(windowSize.x / 2, windowSize.y - 25.0f - 1.0f);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = 26;
                             calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
             				state = 7;
             				break;
             			case 7:
             				calibration.setPosition(windowSize.x - 25.0f - 1.0f, windowSize.y - 25.0f - 1.0f);
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x / 2);
                             calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
             				state = 8;
             				break;
             			default:
-                            calibs[state][0][0] = eyePos[0];
-                            calibs[state][0][1] = eyePos[1];
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[0];
+                            }
+                            calibs[state][0][0] = sum / 100000.0f;
+                            sum = 0.0f;
+                            for (int i = 0; i < 100000; i++) {
+                                sum += eyePos[1];
+                            }
+                            calibs[state][0][1] = sum / 100000.0f;
                             calibs[state][1][0] = std::round(windowSize.x - 25.0f - 1.0f);
                             calibs[state][1][1] = std::round(windowSize.y - 25.0f - 1.0f);
                             state = -1;
