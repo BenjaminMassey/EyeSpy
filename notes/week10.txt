@@ -1,0 +1,10 @@
+Benjamin Massey / Michael Welch
+Final Notes
+
+Here is a breakdown of the division of the workload.
+
+Ben handled the research into OpenCV.  He then wrote the C++ code regarding eye tracking using OpenCV and attempted implementation of improved techniques.
+
+Michael used SFML to create the eye spy game.  He then added code to accommodate eye tracking and calibration.
+
+The eye tracking did not end up working as intended in the end. However the project was still a success in our eyes because we learned a lot about the implementation of visual rendering techniques and image processing.  In addition we set up good ground work for a future project.
